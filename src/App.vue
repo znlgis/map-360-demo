@@ -111,7 +111,8 @@ function onDeleteMarker(id: string) {
 </script>
 
 <style>
-/* 全局样式 — PSV marker tooltip 中文内容样式 */
+/* 全局样式 — PSV marker tooltip 中文内容样式（适配深色面板背景） */
+.psv-panel-content,
 .psv-marker-content {
   padding: 8px;
   min-width: 200px;
@@ -119,13 +120,23 @@ function onDeleteMarker(id: string) {
 .psv-marker-content h3 {
   margin: 0 0 6px;
   font-size: 15px;
-  color: #333;
+  color: #e0e0e0;
 }
 .psv-marker-content p {
   margin: 0;
   font-size: 13px;
-  color: #666;
+  color: #b0b0b0;
   line-height: 1.5;
+}
+
+/* PSV 深色面板文字全局可读性 */
+.psv-panel,
+.psv-panel-content {
+  color: #d0d0d0;
+}
+.psv-panel h3,
+.psv-panel .psv-panel-title {
+  color: #e8e8e8;
 }
 </style>
 

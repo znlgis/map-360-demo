@@ -67,7 +67,7 @@ function createViewer() {
         bearing: props.scene.bearing,
         defaultZoom: props.scene.defaultZoom,
         size: { width: '300px', height: '300px' },
-        position: 'bottom right',
+        position: 'bottom left',
         visibleOnLoad: true,
         lang: {
           map: '地图',
@@ -87,11 +87,10 @@ function createViewer() {
   planPlugin = viewer.getPlugin(PlanPlugin)
 
   // 点击360视图获取位置
-  viewer.addEventListener('click', () => {
-    const state = viewer!.getState()
+  viewer.addEventListener('click', (e: any) => {
     emit('click-empty', {
-      yaw: state.position.yaw,
-      pitch: state.position.pitch,
+      yaw: e.data.yaw,
+      pitch: e.data.pitch,
     })
   })
 
