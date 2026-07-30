@@ -71,12 +71,23 @@ export const DEFAULT_MARKERS: MarkerData[] = [
   },
 ]
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
 /** 将 MarkerData 转换为 PSV markers-plugin 可用的配置 */
 export function toPsvMarkerConfig(m: MarkerData): PsvMarkerConfig {
+  const safeName = escapeHtml(m.name)
+  const safeDesc = escapeHtml(m.description)
   return {
     id: m.id,
     tooltip: m.name,
-    content: `<div class="psv-marker-content"><h3>${m.name}</h3><p>${m.description}</p></div>`,
+    content: `<div class="psv-marker-content"><h3>${safeName}</h3><p>${safeDesc}</p></div>`,
     position: m.position,
     image: BASE_URL + 'pictos/pin-blue.png',
     size: { width: 32, height: 32 },
