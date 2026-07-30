@@ -28,8 +28,6 @@ const containerRef = ref<HTMLDivElement>()
 let viewer: Viewer | null = null
 let markersPlugin: MarkersPlugin | null = null
 let planPlugin: PlanPlugin | null = null
-let isMarkerClick = false
-
 function createViewer() {
   if (!containerRef.value) return
   destroyViewer()
@@ -89,11 +87,7 @@ function createViewer() {
   planPlugin = viewer.getPlugin(PlanPlugin)
 
   // 点击360视图获取位置
-  viewer.addEventListener('click', (e) => {
-    if (isMarkerClick) {
-      isMarkerClick = false
-      return
-    }
+  viewer.addEventListener('click', () => {
     const state = viewer!.getState()
     emit('click-empty', {
       yaw: state.position.yaw,
@@ -103,7 +97,6 @@ function createViewer() {
 
   // 标记点击事件：旋转视角
   markersPlugin?.addEventListener('select-marker', ({ marker }) => {
-    isMarkerClick = true
     markersPlugin?.gotoMarker(marker.id)
   })
 
@@ -141,10 +134,10 @@ watch(() => props.scene.id, () => {
 })
 
 // 标记变化时增量更新
-watch(() => props.markers.length, () => {
+watch(() => props.markers, () => {
   if (!viewer) return
   refreshMarkers()
-}, { flush: 'post' })
+}, { deep: true, flush: 'post' })
 
 onMounted(() => {
   createViewer()
