@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue'
-import type { Scene, MarkerData } from '../types'
-import { SCENES, DEFAULT_MARKERS } from '../data/scenes'
+import type { Scene, MarkerData } from '@/types'
+import { SCENES, DEFAULT_MARKERS } from '@/data/scenes'
 
 let idCounter = DEFAULT_MARKERS.length + 1
 

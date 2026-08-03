@@ -18,7 +18,7 @@
 </template>
 
 <script setup lang="ts">
-import type { Scene } from '../types'
+import type { Scene } from '@/types'
 
 defineProps<{
   scenes: Scene[]

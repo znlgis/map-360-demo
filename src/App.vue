@@ -18,7 +18,7 @@
       <PsvContainer
         ref="psvRef"
         :scene="currentScene"
-        :markers="markers"
+        :markers="currentMarkers"
         @click-empty="onClickEmpty"
       />
     </main>
@@ -41,17 +41,16 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import SceneSelector from './components/SceneSelector.vue'
-import PsvContainer from './components/PsvContainer.vue'
-import MarkerList from './components/MarkerList.vue'
-import MarkerModal from './components/MarkerModal.vue'
-import { useAppState } from './composables/useAppState'
+import SceneSelector from '@/components/SceneSelector.vue'
+import PsvContainer from '@/components/PsvContainer.vue'
+import MarkerList from '@/components/MarkerList.vue'
+import MarkerModal from '@/components/MarkerModal.vue'
+import { useAppState } from '@/composables/useAppState'
 
 const {
   scenes,
   currentSceneId,
   currentScene,
-  markers,
   currentMarkers,
   switchScene,
   addMarker,
