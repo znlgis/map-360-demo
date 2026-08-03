@@ -25,7 +25,7 @@
 </template>
 
 <script setup lang="ts">
-import type { MarkerData } from '../types'
+import type { MarkerData } from '@/types'
 
 defineProps<{
   markers: MarkerData[]

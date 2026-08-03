@@ -1,4 +1,4 @@
-import type { Scene, MarkerData, PsvMarkerConfig } from '../types'
+import type { Scene, MarkerData, PsvMarkerConfig } from '@/types'
 
 export const BASE_URL = 'https://photo-sphere-viewer-data.netlify.app/assets/'
 
@@ -86,7 +86,7 @@ export function toPsvMarkerConfig(m: MarkerData): PsvMarkerConfig {
   const safeDesc = escapeHtml(m.description)
   return {
     id: m.id,
-    tooltip: m.name,
+    tooltip: safeName,
     content: `<div class="psv-marker-content"><h3>${safeName}</h3><p>${safeDesc}</p></div>`,
     position: m.position,
     image: BASE_URL + 'pictos/pin-blue.png',

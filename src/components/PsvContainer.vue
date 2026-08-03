@@ -11,8 +11,8 @@ import '@photo-sphere-viewer/core/index.css'
 import '@photo-sphere-viewer/markers-plugin/index.css'
 import '@photo-sphere-viewer/plan-plugin/index.css'
 import 'leaflet/dist/leaflet.css'
-import type { Scene, MarkerData } from '../types'
-import { toPsvMarkerConfig, BASE_URL } from '../data/scenes'
+import type { Scene, MarkerData } from '@/types'
+import { toPsvMarkerConfig, BASE_URL } from '@/data/scenes'
 
 const props = defineProps<{
   scene: Scene
@@ -69,13 +69,6 @@ function createViewer() {
         size: { width: '300px', height: '300px' },
         position: 'bottom left',
         visibleOnLoad: true,
-        lang: {
-          map: '地图',
-          mapMaximize: '最大化',
-          mapMinimize: '最小化',
-          mapReset: '重置',
-          mapLayers: '底图',
-        },
       }),
       MarkersPlugin.withConfig({
         markers: props.markers.map(toPsvMarkerConfig),
@@ -83,11 +76,12 @@ function createViewer() {
     ],
   })
 
-  markersPlugin = viewer.getPlugin(MarkersPlugin)
-  planPlugin = viewer.getPlugin(PlanPlugin)
+  markersPlugin = viewer.getPlugin<MarkersPlugin>(MarkersPlugin)
+  planPlugin = viewer.getPlugin<PlanPlugin>(PlanPlugin)
 
   // 点击360视图获取位置
-  viewer.addEventListener('click', (e: any) => {
+  viewer.addEventListener('click', (e) => {
+    if (e.data.marker) return
     emit('click-empty', {
       yaw: e.data.yaw,
       pitch: e.data.pitch,
@@ -97,14 +91,6 @@ function createViewer() {
   // 标记点击事件：旋转视角
   markersPlugin?.addEventListener('select-marker', ({ marker }) => {
     markersPlugin?.gotoMarker(marker.id)
-  })
-
-  // 地图热点点击：旋转视角到对应标记
-  planPlugin?.addEventListener('select-hotspot', ({ hotspotId }) => {
-    const found = props.markers.find(m => m.id === hotspotId)
-    if (found && markersPlugin) {
-      markersPlugin.gotoMarker(hotspotId)
-    }
   })
 
   emit('ready')
@@ -121,10 +107,7 @@ function destroyViewer() {
 
 function refreshMarkers() {
   if (!markersPlugin) return
-  markersPlugin.clearMarkers()
-  props.markers.forEach(m => {
-    markersPlugin!.addMarker(toPsvMarkerConfig(m) as any)
-  })
+  markersPlugin.setMarkers(props.markers.map(toPsvMarkerConfig))
 }
 
 // 场景切换时重建 viewer
