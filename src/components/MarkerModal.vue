@@ -6,12 +6,15 @@
         class="modal-overlay"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="modal-title"
+        :aria-labelledby="modalTitleId"
         @click.self="cancel"
         @keydown="onKeydown"
       >
         <div class="modal-content" tabindex="-1">
-          <h3 id="modal-title" class="modal-title">添加标记</h3>
+          <h3 :id="modalTitleId" class="modal-title">
+            {{ isEditing ? '编辑标记' : '添加标记' }}
+          </h3>
+
           <div class="modal-field">
             <label class="modal-label" for="marker-name">标记名称</label>
             <input
@@ -24,6 +27,7 @@
               @keyup.enter="confirm"
             />
           </div>
+
           <div class="modal-field">
             <label class="modal-label" for="marker-desc">描述信息（选填）</label>
             <textarea
@@ -35,6 +39,39 @@
               maxlength="100"
             ></textarea>
           </div>
+
+          <div class="modal-field">
+            <span class="modal-label">标记类型</span>
+            <div class="modal-types" role="radiogroup" aria-label="标记类型">
+              <label class="modal-type" :class="{ 'modal-type--active': type === 'info' }">
+                <input v-model="type" type="radio" value="info" class="modal-type-input" />
+                <span class="modal-type-icon" aria-hidden="true">📍</span>
+                <span class="modal-type-text">
+                  <span class="modal-type-name">信息标记</span>
+                  <span class="modal-type-desc">展示景点、提示等信息</span>
+                </span>
+              </label>
+              <label class="modal-type" :class="{ 'modal-type--active': type === 'link' }">
+                <input v-model="type" type="radio" value="link" class="modal-type-input" />
+                <span class="modal-type-icon" aria-hidden="true">➜</span>
+                <span class="modal-type-text">
+                  <span class="modal-type-name">场景跳转</span>
+                  <span class="modal-type-desc">点击后切换到目标场景</span>
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <div class="modal-field" v-if="type === 'link'">
+            <label class="modal-label" for="marker-target">目标场景</label>
+            <select id="marker-target" v-model="targetSceneId" class="modal-input">
+              <option v-for="s in targetScenes" :key="s.id" :value="s.id">
+                {{ s.name }}
+              </option>
+            </select>
+            <p class="modal-hint">在全景或地图上点击该标记，将跳转到目标场景</p>
+          </div>
+
           <div class="modal-field">
             <span class="modal-label">标记位置（经纬度）</span>
             <div class="modal-coords">
@@ -61,12 +98,17 @@
                 />
               </div>
             </div>
-            <p class="modal-hint">已按全景点击位置估算，可手动修改；或取消后点击右下角地图精确定位</p>
+            <p class="modal-hint">已按选点位置估算，可手动修改；或取消后点击全景图/地图重新选点</p>
           </div>
+
           <div class="modal-actions">
             <button class="modal-btn modal-btn-cancel" @click="cancel">取消</button>
-            <button class="modal-btn modal-btn-confirm" :disabled="!name.trim()" @click="confirm">
-              确认添加
+            <button
+              class="modal-btn modal-btn-confirm"
+              :disabled="!name.trim() || (type === 'link' && !targetSceneId)"
+              @click="confirm"
+            >
+              {{ isEditing ? '保存修改' : '确认添加' }}
             </button>
           </div>
         </div>
@@ -76,23 +118,41 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
+import type { MarkerData, MarkerPayload, MarkerType, Scene } from '@/types'
 
 const props = defineProps<{
   visible: boolean
   coordinates: [number, number]
+  /** 当前场景 id（用于排除目标场景选项） */
+  currentSceneId: string
+  /** 所有场景（目标场景下拉用） */
+  scenes: Scene[]
+  /** 编辑中的标记，为空表示新增 */
+  editingMarker?: MarkerData | null
 }>()
 
 const emit = defineEmits<{
-  confirm: [name: string, description: string, coordinates: [number, number]]
+  confirm: [payload: MarkerPayload]
   cancel: []
 }>()
 
+const modalTitleId = `marker-modal-${Math.random().toString(36).slice(2, 8)}`
 const name = ref('')
 const description = ref('')
 const lng = ref('')
 const lat = ref('')
+const type = ref<MarkerType>('info')
+const targetSceneId = ref('')
 const nameInput = ref<HTMLInputElement>()
+/** 打开弹窗前聚焦的元素，关闭后恢复 */
+let lastFocused: HTMLElement | null = null
+
+const isEditing = computed(() => !!props.editingMarker)
+
+const targetScenes = computed<Scene[]>(() =>
+  props.scenes.filter(s => s.id !== props.currentSceneId)
+)
 
 function syncCoords() {
   lng.value = props.coordinates[0].toFixed(6)
@@ -101,10 +161,26 @@ function syncCoords() {
 
 watch(() => props.visible, (val) => {
   if (val) {
-    name.value = ''
-    description.value = ''
+    // 编辑模式预填；新增模式清空
+    if (props.editingMarker) {
+      const m = props.editingMarker
+      name.value = m.name
+      description.value = m.description
+      type.value = m.type ?? 'info'
+      targetSceneId.value = m.targetSceneId ?? props.scenes.find(s => s.id !== props.currentSceneId)?.id ?? ''
+    } else {
+      name.value = ''
+      description.value = ''
+      type.value = 'info'
+      targetSceneId.value = props.scenes.find(s => s.id !== props.currentSceneId)?.id ?? ''
+    }
     syncCoords()
+    lastFocused = document.activeElement as HTMLElement | null
     nextTick(() => nameInput.value?.focus())
+  } else {
+    // 关闭后恢复焦点
+    lastFocused?.focus?.()
+    lastFocused = null
   }
 })
 
@@ -119,13 +195,20 @@ function cancel() {
 
 function confirm() {
   if (!name.value.trim()) return
+  if (type.value === 'link' && !targetSceneId.value) return
   const lngNum = Number.parseFloat(lng.value)
   const latNum = Number.parseFloat(lat.value)
-  const coords: [number, number] = [
-    Number.isNaN(lngNum) ? props.coordinates[0] : Math.min(180, Math.max(-180, lngNum)),
-    Number.isNaN(latNum) ? props.coordinates[1] : Math.min(90, Math.max(-90, latNum)),
-  ]
-  emit('confirm', name.value.trim(), description.value.trim(), coords)
+  const payload: MarkerPayload = {
+    name: name.value.trim(),
+    description: description.value.trim(),
+    coordinates: [
+      Number.isNaN(lngNum) ? props.coordinates[0] : Math.min(180, Math.max(-180, lngNum)),
+      Number.isNaN(latNum) ? props.coordinates[1] : Math.min(90, Math.max(-90, latNum)),
+    ],
+    type: type.value,
+    targetSceneId: type.value === 'link' ? targetSceneId.value : undefined,
+  }
+  emit('confirm', payload)
 }
 
 // Esc 关闭 + 简易焦点圈定（Tab 在弹窗内循环；排除 tabindex=-1 的容器自身）
@@ -137,7 +220,7 @@ function onKeydown(e: KeyboardEvent) {
   if (e.key !== 'Tab') return
   const focusable = Array.from(
     (e.currentTarget as HTMLElement).querySelectorAll<HTMLElement>(
-      'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])'
+      'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])'
     )
   )
   if (focusable.length === 0) return
@@ -152,6 +235,11 @@ function onKeydown(e: KeyboardEvent) {
     first.focus()
   }
 }
+
+// 弹窗关闭时若 lastFocused 已被移除（如删除标记），忽略
+onBeforeUnmount(() => {
+  lastFocused = null
+})
 </script>
 
 <style scoped>
@@ -163,6 +251,8 @@ function onKeydown(e: KeyboardEvent) {
   align-items: center;
   justify-content: center;
   z-index: 10000;
+  overflow-y: auto;
+  padding: 16px;
 }
 
 .modal-content {
@@ -170,7 +260,9 @@ function onKeydown(e: KeyboardEvent) {
   border-radius: 14px;
   padding: 24px;
   width: 440px;
-  max-width: 90vw;
+  max-width: 92vw;
+  max-height: 90vh;
+  overflow-y: auto;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
   outline: none;
 }
@@ -227,6 +319,64 @@ function onKeydown(e: KeyboardEvent) {
   font-size: 12px;
   color: #999;
   line-height: 1.5;
+}
+
+/* 类型选择卡片 */
+.modal-types {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.modal-type {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1.5px solid #e2e2e2;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.modal-type:hover {
+  border-color: #b8d8ff;
+}
+
+.modal-type--active {
+  border-color: #4a9eff;
+  background: rgba(74, 158, 255, 0.08);
+  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.12);
+}
+
+.modal-type-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.modal-type-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.modal-type-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.modal-type-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
+.modal-type-desc {
+  font-size: 11px;
+  color: #888;
 }
 
 .modal-actions {

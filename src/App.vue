@@ -10,32 +10,35 @@
         <span class="scene-desc">{{ currentScene.description }}</span>
         <button
           class="toolbar-btn"
-          :class="{ 'toolbar-btn--active': adding }"
-          @click="startAddMarker"
+          :class="{ 'toolbar-btn--active': flow.adding.value }"
+          @click="flow.startAddMarker()"
         >
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
             <path d="M12 5v14M5 12h14" />
           </svg>
-          {{ adding ? '添加模式中…' : '添加标记' }}
+          {{ flow.adding.value ? (isEditing ? '编辑中…' : '添加模式中…') : '添加标记' }}
         </button>
       </div>
     </header>
 
     <main class="app-main">
       <Transition name="hint">
-        <div v-if="adding" class="add-mode-bar">
+        <div v-if="flow.adding.value" class="add-mode-bar">
           <span class="add-mode-icon" aria-hidden="true">📍</span>
-          <span>添加模式：点击全景图空白处，或点击右下角地图精确定位</span>
-          <button class="add-mode-cancel" @click="exitAdding">取消</button>
+          <span>
+            {{ isEditing ? '编辑模式：点击全景图或地图调整位置' : '添加模式：点击全景图空白处，或点击右下角地图精确定位' }}
+          </span>
+          <button class="add-mode-cancel" @click="flow.exitAdding()">取消</button>
         </div>
       </Transition>
       <PsvContainer
         ref="psvRef"
         :scene="currentScene"
         :markers="currentMarkers"
-        :preview-marker="previewMarker"
-        @click-empty="onClickEmpty"
-        @map-pick="onMapPick"
+        :preview-marker="flow.previewMarker.value"
+        @click-empty="flow.onClickEmpty"
+        @map-pick="flow.onMapPick"
+        @marker-click="onMarkerClick"
       />
     </main>
 
@@ -43,16 +46,22 @@
       <MarkerList
         :markers="currentMarkers"
         @view-marker="onViewMarker"
+        @edit-marker="onEditMarker"
         @delete-marker="onDeleteMarker"
         @restore="onRestoreMarkers"
+        @export="onExportMarkers"
+        @import="onImportMarkers"
       />
     </footer>
 
     <MarkerModal
-      :visible="showModal"
-      :coordinates="modalCoords"
-      @confirm="onConfirmMarker"
-      @cancel="onCancelMarker"
+      :visible="flow.showModal.value"
+      :coordinates="flow.modalCoords.value"
+      :current-scene-id="currentSceneId"
+      :scenes="scenes"
+      :editing-marker="flow.editingMarker.value"
+      @confirm="flow.onModalConfirm"
+      @cancel="flow.onModalCancel"
     />
 
     <ToastHost />
@@ -63,13 +72,12 @@
 import { ref, computed } from 'vue'
 import SceneSelector from '@/components/SceneSelector.vue'
 import PsvContainer from '@/components/PsvContainer.vue'
-import { PREVIEW_ID } from '@/data/scenes'
 import MarkerList from '@/components/MarkerList.vue'
 import MarkerModal from '@/components/MarkerModal.vue'
 import ToastHost from '@/components/ToastHost.vue'
 import { useAppState } from '@/composables/useAppState'
 import { useToast } from '@/composables/useToast'
-import { estimateGps, yawFromGps } from '@/utils/geo'
+import { useAddMarkerFlow } from '@/composables/useAddMarkerFlow'
 import type { MarkerData } from '@/types'
 
 const {
@@ -79,55 +87,35 @@ const {
   currentMarkers,
   switchScene,
   addMarker,
+  updateMarker,
   removeMarker,
   resetMarkers,
+  exportMarkers,
+  importMarkers,
 } = useAppState()
 
 const { show } = useToast()
 
 const psvRef = ref<InstanceType<typeof PsvContainer>>()
-const showModal = ref(false)
 
-// ---- 添加模式状态 ----
-const adding = ref(false)
-const pendingPosition = ref<{ yaw: number; pitch: number } | null>(null)
-const pendingCoords = ref<[number, number] | null>(null)
-
-/** 弹窗显示的坐标（有选点则用选点，否则用场景中心） */
-const modalCoords = computed<[number, number]>(() =>
-  pendingCoords.value ?? currentScene.value.coordinates
-)
-
-/** 待确认标记的预览 pin（红色脉冲），确认前同步显示在全景与地图上 */
-const previewMarker = computed<MarkerData | null>(() => {
-  if (!pendingPosition.value || !pendingCoords.value) return null
-  return {
-    id: PREVIEW_ID,
-    sceneId: currentScene.value.id,
-    name: '',
-    description: '',
-    position: pendingPosition.value,
-    coordinates: pendingCoords.value,
-    createdAt: 0,
-  }
+const flow = useAddMarkerFlow({
+  currentScene,
+  currentMarkers,
+  onAdd: (payload) => {
+    const marker = addMarker(payload)
+    show(`已添加标记「${marker.name}」`, 'success')
+  },
+  onUpdate: (id, patch) => {
+    updateMarker(id, patch)
+    const m = currentMarkers.value.find(x => x.id === id)
+    show(`已更新标记「${m?.name ?? id}」`, 'success')
+  },
 })
 
-function startAddMarker() {
-  if (adding.value) return
-  adding.value = true
-  show('已进入添加模式：点击全景图或地图选择标记位置', 'info')
-}
-
-/** 完全退出添加模式并清理预览 */
-function exitAdding() {
-  adding.value = false
-  pendingPosition.value = null
-  pendingCoords.value = null
-  showModal.value = false
-}
+const isEditing = computed(() => !!flow.editingMarker.value)
 
 function onSceneSwitch(id: string) {
-  exitAdding()
+  flow.exitAdding()
   const target = scenes.value.find(s => s.id === id)
   switchScene(id)
   if (target) {
@@ -135,46 +123,36 @@ function onSceneSwitch(id: string) {
   }
 }
 
-function onClickEmpty(position: { yaw: number; pitch: number }) {
-  if (!adding.value) return
-  pendingPosition.value = position
-  // 按场景方位角估算经纬度，方向与点击方位一致
-  pendingCoords.value = estimateGps(currentScene.value, position.yaw, position.pitch)
-  showModal.value = true
-}
-
-function onMapPick(coords: [number, number]) {
-  if (!adding.value) return
-  pendingCoords.value = coords
-  // 反推 yaw，使 360 预览 pin 朝向地图所选方向
-  const yaw = yawFromGps(currentScene.value, coords)
-  pendingPosition.value = pendingPosition.value
-    ? { ...pendingPosition.value, yaw }
-    : { yaw, pitch: 0 }
-  showModal.value = true
-}
-
-function onConfirmMarker(name: string, description: string, coordinates: [number, number]) {
-  if (!pendingPosition.value) return
-  addMarker({
-    sceneId: currentScene.value.id,
-    name,
-    description,
-    position: pendingPosition.value,
-    coordinates,
-  })
-  show(`已添加标记「${name}」`, 'success')
-  exitAdding()
-}
-
-/** 弹窗取消：保留预览 pin 和添加模式，便于重新选点 */
-function onCancelMarker() {
-  showModal.value = false
+/** 标记点击：link 标记切换场景，info 标记旋转视角 */
+function onMarkerClick(id: string) {
+  const marker = currentMarkers.value.find(m => m.id === id)
+  if (!marker) return
+  if (marker.type === 'link' && marker.targetSceneId) {
+    // 已在该场景时无需切换
+    if (marker.targetSceneId === currentScene.value.id) {
+      show('已在该场景中', 'info')
+      return
+    }
+    flow.exitAdding()
+    const target = scenes.value.find(s => s.id === marker.targetSceneId)
+    switchScene(marker.targetSceneId!)
+    if (target) {
+      show(`已跳转至「${target.name}」`, 'info')
+    }
+  } else {
+    psvRef.value?.gotoMarker(id)
+  }
 }
 
 function onViewMarker(id: string) {
-  const p = psvRef.value?.getMarkersPlugin()
-  if (p) p.gotoMarker(id)
+  psvRef.value?.gotoMarker(id)
+}
+
+function onEditMarker(id: string) {
+  const marker = currentMarkers.value.find(m => m.id === id)
+  if (marker) {
+    flow.openEdit(marker)
+  }
 }
 
 function onDeleteMarker(id: string) {
@@ -187,54 +165,23 @@ function onRestoreMarkers() {
   resetMarkers()
   show('已恢复为预设标记', 'success')
 }
+
+function onExportMarkers() {
+  const blob = new Blob([exportMarkers()], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `map-360-markers-${new Date().toISOString().slice(0, 10)}.json`
+  a.click()
+  URL.revokeObjectURL(url)
+  show('已导出全部标记', 'success')
+}
+
+function onImportMarkers(json: string) {
+  const result = importMarkers(json)
+  show(result.message, result.ok ? 'success' : 'error')
+}
 </script>
-
-<style>
-/* 全局样式 — PSV marker tooltip 中文内容样式（适配深色面板背景） */
-.psv-panel-content,
-.psv-marker-content {
-  padding: 8px;
-  min-width: 200px;
-}
-
-.psv-marker-content h3 {
-  margin: 0 0 6px;
-  font-size: 15px;
-  color: #e0e0e0;
-}
-
-.psv-marker-content p {
-  margin: 0;
-  font-size: 13px;
-  color: #b0b0b0;
-  line-height: 1.5;
-}
-
-/* PSV 深色面板文字全局可读性 */
-.psv-panel,
-.psv-panel-content {
-  color: #d0d0d0;
-}
-
-.psv-panel h3,
-.psv-panel .psv-panel-title {
-  color: #e8e8e8;
-}
-
-/* 预览 pin 脉冲动效 */
-.psv-marker--preview {
-  animation: psv-preview-pulse 1.1s ease-in-out infinite;
-}
-
-.psv-marker--preview .psv-marker-image {
-  transform-origin: bottom center;
-}
-
-@keyframes psv-preview-pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.22); }
-}
-</style>
 
 <style scoped>
 .app {

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <!-- 场景跳转标记：绿色箭头 pin -->
+  <path d="M16 2c-5.5 0-10 4.5-10 10 0 7 10 18 10 18s10-11 10-18c0-5.5-4.5-10-10-10z" fill="#4ade80"/>
+  <path d="M16 5.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13z" fill="#fff"/>
+  <path d="M16 8.5l-3.2 3.2h2.2v3.6h2v-3.6h2.2z" fill="#22c55e"/>
+</svg>

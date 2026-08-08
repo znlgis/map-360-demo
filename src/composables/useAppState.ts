@@ -7,17 +7,21 @@ const STORAGE_KEY = 'map-360-demo:markers:v1'
 function isValidMarker(m: unknown): m is MarkerData {
   if (typeof m !== 'object' || m === null) return false
   const o = m as Record<string, unknown>
+  const position = o.position as Record<string, unknown> | null
+  const coords = o.coordinates
   return (
     typeof o.id === 'string' &&
     typeof o.sceneId === 'string' &&
     typeof o.name === 'string' &&
     typeof o.description === 'string' &&
     typeof o.createdAt === 'number' &&
-    typeof o.position === 'object' && o.position !== null &&
-    typeof (o.position as Record<string, unknown>).yaw === 'number' &&
-    typeof (o.position as Record<string, unknown>).pitch === 'number' &&
-    Array.isArray(o.coordinates) && o.coordinates.length === 2 &&
-    o.coordinates.every(c => typeof c === 'number')
+    typeof o.position === 'object' && position !== null &&
+    typeof position.yaw === 'number' &&
+    typeof position.pitch === 'number' &&
+    Array.isArray(coords) && coords.length === 2 &&
+    coords.every(c => typeof c === 'number') &&
+    (o.type === undefined || o.type === 'info' || o.type === 'link') &&
+    (o.type !== 'link' || typeof o.targetSceneId === 'string')
   )
 }
 
@@ -94,6 +98,14 @@ export function useAppState() {
     return marker
   }
 
+  /** 编辑标记：按 id 原位更新 */
+  function updateMarker(id: string, patch: Partial<Omit<MarkerData, 'id' | 'createdAt'>>): void {
+    const idx = markers.value.findIndex(m => m.id === id)
+    if (idx !== -1) {
+      markers.value[idx] = { ...markers.value[idx], ...patch }
+    }
+  }
+
   function removeMarker(id: string): void {
     const idx = markers.value.findIndex(m => m.id === id)
     if (idx !== -1) {
@@ -111,6 +123,44 @@ export function useAppState() {
     }
   }
 
+  /** 导出全部标记为 JSON 字符串 */
+  function exportMarkers(): string {
+    return JSON.stringify(markers.value, null, 2)
+  }
+
+  /**
+   * 导入标记 JSON：校验并去重 id。
+   * 返回成功/失败信息，供 UI 反馈。
+   */
+  function importMarkers(json: string): { ok: boolean; message: string } {
+    try {
+      const parsed: unknown = JSON.parse(json)
+      if (!Array.isArray(parsed)) {
+        return { ok: false, message: '文件格式错误：应为标记数组' }
+      }
+      const valid = parsed.filter(isValidMarker)
+      if (valid.length === 0) {
+        return { ok: false, message: '文件中没有有效的标记数据' }
+      }
+      // 重新分配 id，避免与现有标记冲突；场景不存在的标记丢弃
+      const knownIds = new Set(scenes.value.map(s => s.id))
+      const imported: MarkerData[] = valid
+        .filter(m => knownIds.has(m.sceneId))
+        .map(m => ({
+          ...m,
+          id: generateId(),
+          createdAt: m.createdAt > 0 ? m.createdAt : Date.now(),
+        }))
+      if (imported.length === 0) {
+        return { ok: false, message: '导入的标记不属于任何已知场景' }
+      }
+      markers.value.push(...imported)
+      return { ok: true, message: `成功导入 ${imported.length} 个标记` }
+    } catch {
+      return { ok: false, message: 'JSON 解析失败，文件可能已损坏' }
+    }
+  }
+
   return {
     scenes,
     currentSceneId,
@@ -119,8 +169,11 @@ export function useAppState() {
     currentMarkers,
     switchScene,
     addMarker,
+    updateMarker,
     removeMarker,
     resetMarkers,
+    exportMarkers,
+    importMarkers,
     generateId,
   }
 }

@@ -25,7 +25,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   'click-empty': [position: { yaw: number; pitch: number }]
   'map-pick': [coords: [number, number]]
-  'ready': []
+  /** 用户点击全景标记或地图热点时触发（由 App 决定跳转逻辑） */
+  'marker-click': [id: string]
 }>()
 
 const containerRef = ref<HTMLDivElement>()
@@ -103,23 +104,18 @@ function createViewer() {
     })
   })
 
-  // 标记点击事件：旋转视角
+  // 标记点击事件：交由 App 决定（信息标记旋转视角 / 跳转标记切换场景）
   markersPlugin?.addEventListener('select-marker', ({ marker }) => {
-    markersPlugin?.gotoMarker(marker.id)
+    emit('marker-click', marker.id)
   })
 
-  // 地图热点点击：旋转视角到对应标记
+  // 地图热点点击：同样交由 App 处理
   planPlugin?.addEventListener('select-hotspot', ({ hotspotId }) => {
-    const cfg = props.markers.find(m => m.id === hotspotId)
-    if (cfg && markersPlugin) {
-      markersPlugin.gotoMarker(hotspotId)
-    }
+    emit('marker-click', hotspotId)
   })
 
   // 若创建时已有预览标记（如场景重建），确保渲染
   syncPreview()
-
-  emit('ready')
 }
 
 function destroyViewer() {
@@ -196,11 +192,14 @@ onUnmounted(() => {
   destroyViewer()
 })
 
-// 暴露给父组件
+/** 旋转视角到某个标记 */
+function gotoMarker(id: string) {
+  markersPlugin?.gotoMarker(id)
+}
+
+// 暴露语义化接口，不直接暴露插件实例
 defineExpose({
-  getViewer: () => viewer,
-  getMarkersPlugin: () => markersPlugin,
-  getPlanPlugin: () => planPlugin,
+  gotoMarker,
   refreshMarkers,
 })
 </script>

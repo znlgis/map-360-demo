@@ -5,6 +5,9 @@ export const BASE_URL = 'https://photo-sphere-viewer-data.netlify.app/assets/'
 /** 添加标记时预览 pin 的固定标记 id（App 与 PsvContainer 共用） */
 export const PREVIEW_ID = '__preview__'
 
+/** 场景跳转标记使用的本地图标 */
+export const LINK_ICON = '/icons/link-pin.svg'
+
 export const SCENES: Scene[] = [
   {
     id: 'mercantour',
@@ -35,6 +38,7 @@ export const DEFAULT_MARKERS: MarkerData[] = [
     position: { yaw: 0.09, pitch: 0.32 },
     coordinates: [6.79077, 44.58041],
     createdAt: Date.now(),
+    type: 'info',
   },
   {
     id: 'm2',
@@ -44,6 +48,7 @@ export const DEFAULT_MARKERS: MarkerData[] = [
     position: { yaw: 3.00, pitch: 0.15 },
     coordinates: [6.783, 44.5835],
     createdAt: Date.now(),
+    type: 'info',
   },
   {
     id: 'm3',
@@ -53,6 +58,7 @@ export const DEFAULT_MARKERS: MarkerData[] = [
     position: { yaw: 0.22, pitch: -0.1 },
     coordinates: [6.792, 44.579],
     createdAt: Date.now(),
+    type: 'info',
   },
   {
     id: 'm4',
@@ -62,6 +68,7 @@ export const DEFAULT_MARKERS: MarkerData[] = [
     position: { yaw: 2.48, pitch: 0.1 },
     coordinates: [-80.155, 25.6735],
     createdAt: Date.now(),
+    type: 'info',
   },
   {
     id: 'm5',
@@ -71,6 +78,29 @@ export const DEFAULT_MARKERS: MarkerData[] = [
     position: { yaw: 5.35, pitch: 0.05 },
     coordinates: [-80.1565, 25.6748],
     createdAt: Date.now(),
+    type: 'info',
+  },
+  {
+    id: 'm6',
+    sceneId: 'mercantour',
+    name: '前往比斯坎湾灯塔',
+    description: '点击跳转到比斯坎湾灯塔场景，探索佛罗里达海岸风光。',
+    position: { yaw: 4.5, pitch: 0.1 },
+    coordinates: [6.7865, 44.5812],
+    createdAt: Date.now(),
+    type: 'link',
+    targetSceneId: 'key-biscayne',
+  },
+  {
+    id: 'm7',
+    sceneId: 'key-biscayne',
+    name: '返回默康图尔国家公园',
+    description: '点击跳转回默康图尔国家公园，继续阿尔卑斯山之旅。',
+    position: { yaw: 1.2, pitch: 0.15 },
+    coordinates: [-80.1562, 25.6744],
+    createdAt: Date.now(),
+    type: 'link',
+    targetSceneId: 'mercantour',
   },
 ]
 
@@ -85,21 +115,25 @@ function escapeHtml(str: string): string {
 
 /** 将 MarkerData 转换为 PSV markers-plugin 可用的配置 */
 export function toPsvMarkerConfig(m: MarkerData): PsvMarkerConfig {
+  const isLink = m.type === 'link'
   const safeName = escapeHtml(m.name)
   const safeDesc = escapeHtml(m.description)
+  const tooltip = isLink ? `${safeName}（跳转）` : safeName
   return {
     id: m.id,
-    tooltip: safeName,
+    tooltip,
     content: `<div class="psv-marker-content"><h3>${safeName}</h3><p>${safeDesc}</p></div>`,
     position: m.position,
-    image: BASE_URL + 'pictos/pin-blue.png',
+    // 跳转标记使用本地绿色箭头图标，信息标记使用蓝色 pin
+    image: isLink ? LINK_ICON : BASE_URL + 'pictos/pin-blue.png',
     size: { width: 32, height: 32 },
     anchor: 'bottom center',
+    className: isLink ? 'psv-marker--link' : '',
     data: {
       plan: {
         coordinates: m.coordinates,
-        size: 25,
-        image: BASE_URL + 'pictos/pin-blue.png',
+        size: 28,
+        image: isLink ? LINK_ICON : BASE_URL + 'pictos/pin-blue.png',
       },
     },
   }
