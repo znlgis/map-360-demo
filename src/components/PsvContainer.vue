@@ -6,21 +6,25 @@
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { Viewer } from '@photo-sphere-viewer/core'
 import { MarkersPlugin } from '@photo-sphere-viewer/markers-plugin'
+import type { MarkerConfig } from '@photo-sphere-viewer/markers-plugin'
 import { PlanPlugin } from '@photo-sphere-viewer/plan-plugin'
 import '@photo-sphere-viewer/core/index.css'
 import '@photo-sphere-viewer/markers-plugin/index.css'
 import '@photo-sphere-viewer/plan-plugin/index.css'
 import 'leaflet/dist/leaflet.css'
 import type { Scene, MarkerData } from '@/types'
-import { toPsvMarkerConfig, BASE_URL } from '@/data/scenes'
+import { toPsvMarkerConfig, BASE_URL, PREVIEW_ID } from '@/data/scenes'
 
 const props = defineProps<{
   scene: Scene
   markers: MarkerData[]
+  /** 待确认的标记预览（红色脉冲 pin，同时显示在地图上） */
+  previewMarker?: MarkerData | null
 }>()
 
 const emit = defineEmits<{
   'click-empty': [position: { yaw: number; pitch: number }]
+  'map-pick': [coords: [number, number]]
   'ready': []
 }>()
 
@@ -28,9 +32,13 @@ const containerRef = ref<HTMLDivElement>()
 let viewer: Viewer | null = null
 let markersPlugin: MarkersPlugin | null = null
 let planPlugin: PlanPlugin | null = null
+let viewerSceneId = ''
+let previewShown = false
+
 function createViewer() {
   if (!containerRef.value) return
   destroyViewer()
+  viewerSceneId = props.scene.id
 
   viewer = new Viewer({
     container: containerRef.value,
@@ -66,9 +74,16 @@ function createViewer() {
         coordinates: props.scene.coordinates,
         bearing: props.scene.bearing,
         defaultZoom: props.scene.defaultZoom,
-        size: { width: '300px', height: '300px' },
+        // 响应式尺寸：桌面 300px，小屏按视口收缩
+        size: { width: 'min(300px, 72vw)', height: 'min(300px, 34vh)' },
         position: 'bottom left',
         visibleOnLoad: true,
+        // 暴露原始 Leaflet 实例，用于地图点击精确选点
+        configureLeaflet: (map) => {
+          map.on('click', (e) => {
+            emit('map-pick', [e.latlng.lng, e.latlng.lat])
+          })
+        },
       }),
       MarkersPlugin.withConfig({
         markers: props.markers.map(toPsvMarkerConfig),
@@ -79,7 +94,7 @@ function createViewer() {
   markersPlugin = viewer.getPlugin<MarkersPlugin>(MarkersPlugin)
   planPlugin = viewer.getPlugin<PlanPlugin>(PlanPlugin)
 
-  // 点击360视图获取位置
+  // 点击360视图获取位置（点击标记时不触发）
   viewer.addEventListener('click', (e) => {
     if (e.data.marker) return
     emit('click-empty', {
@@ -93,10 +108,22 @@ function createViewer() {
     markersPlugin?.gotoMarker(marker.id)
   })
 
+  // 地图热点点击：旋转视角到对应标记
+  planPlugin?.addEventListener('select-hotspot', ({ hotspotId }) => {
+    const cfg = props.markers.find(m => m.id === hotspotId)
+    if (cfg && markersPlugin) {
+      markersPlugin.gotoMarker(hotspotId)
+    }
+  })
+
+  // 若创建时已有预览标记（如场景重建），确保渲染
+  syncPreview()
+
   emit('ready')
 }
 
 function destroyViewer() {
+  previewShown = false
   if (viewer) {
     viewer.destroy()
     viewer = null
@@ -105,9 +132,43 @@ function destroyViewer() {
   }
 }
 
+function previewConfig(m: MarkerData): MarkerConfig {
+  return {
+    id: PREVIEW_ID,
+    tooltip: '新标记位置',
+    content: `<div class="psv-marker-content"><h3>新标记位置</h3><p>确认后将在此处创建标记</p></div>`,
+    position: m.position,
+    image: BASE_URL + 'pictos/pin-red.png',
+    size: { width: 34, height: 34 },
+    anchor: 'bottom center',
+    className: 'psv-marker--preview',
+    data: {
+      plan: {
+        coordinates: m.coordinates,
+        size: 30,
+        image: BASE_URL + 'pictos/pin-red.png',
+      },
+    },
+  }
+}
+
+function syncPreview() {
+  if (!markersPlugin || viewerSceneId !== props.scene.id) return
+  if (previewShown) {
+    markersPlugin.removeMarker(PREVIEW_ID)
+    previewShown = false
+  }
+  if (props.previewMarker) {
+    markersPlugin.addMarker(previewConfig(props.previewMarker))
+    previewShown = true
+  }
+}
+
 function refreshMarkers() {
-  if (!markersPlugin) return
+  if (!markersPlugin || viewerSceneId !== props.scene.id) return
   markersPlugin.setMarkers(props.markers.map(toPsvMarkerConfig))
+  previewShown = false
+  syncPreview()
 }
 
 // 场景切换时重建 viewer
@@ -120,6 +181,12 @@ watch(() => props.markers, () => {
   if (!viewer) return
   refreshMarkers()
 }, { deep: true, flush: 'post' })
+
+// 预览标记变化时同步
+watch(() => props.previewMarker, () => {
+  if (!viewer) return
+  syncPreview()
+}, { deep: true })
 
 onMounted(() => {
   createViewer()
@@ -142,5 +209,11 @@ defineExpose({
 .psv-container {
   width: 100%;
   height: 100%;
+}
+
+/* 小屏兜底：限制地图面板不超过视口 */
+:deep(.psv-plan) {
+  max-width: calc(100vw - 24px);
+  max-height: 40vh;
 }
 </style>

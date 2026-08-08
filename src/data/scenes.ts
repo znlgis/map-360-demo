@@ -2,6 +2,9 @@ import type { Scene, MarkerData, PsvMarkerConfig } from '@/types'
 
 export const BASE_URL = 'https://photo-sphere-viewer-data.netlify.app/assets/'
 
+/** 添加标记时预览 pin 的固定标记 id（App 与 PsvContainer 共用） */
+export const PREVIEW_ID = '__preview__'
+
 export const SCENES: Scene[] = [
   {
     id: 'mercantour',

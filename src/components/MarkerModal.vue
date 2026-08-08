@@ -1,33 +1,77 @@
 <template>
   <Teleport to="body">
-    <div v-if="visible" class="modal-overlay" @click.self="$emit('cancel')">
-      <div class="modal-content">
-        <h3 class="modal-title">添加标记</h3>
-        <div class="modal-field">
-          <label class="modal-label">标记名称</label>
-          <input
-            ref="nameInput"
-            v-model="name"
-            class="modal-input"
-            placeholder="请输入标记名称"
-            @keyup.enter="confirm"
-          />
-        </div>
-        <div class="modal-field">
-          <label class="modal-label">描述信息（选填）</label>
-          <textarea
-            v-model="description"
-            class="modal-textarea"
-            placeholder="请输入描述信息"
-            rows="3"
-          ></textarea>
-        </div>
-        <div class="modal-actions">
-          <button class="modal-btn modal-btn-cancel" @click="$emit('cancel')">取消</button>
-          <button class="modal-btn modal-btn-confirm" :disabled="!name.trim()" @click="confirm">确认添加</button>
+    <Transition name="modal">
+      <div
+        v-if="visible"
+        class="modal-overlay"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
+        @click.self="cancel"
+        @keydown="onKeydown"
+      >
+        <div class="modal-content" tabindex="-1">
+          <h3 id="modal-title" class="modal-title">添加标记</h3>
+          <div class="modal-field">
+            <label class="modal-label" for="marker-name">标记名称</label>
+            <input
+              id="marker-name"
+              ref="nameInput"
+              v-model="name"
+              class="modal-input"
+              placeholder="请输入标记名称"
+              maxlength="30"
+              @keyup.enter="confirm"
+            />
+          </div>
+          <div class="modal-field">
+            <label class="modal-label" for="marker-desc">描述信息（选填）</label>
+            <textarea
+              id="marker-desc"
+              v-model="description"
+              class="modal-textarea"
+              placeholder="请输入描述信息"
+              rows="3"
+              maxlength="100"
+            ></textarea>
+          </div>
+          <div class="modal-field">
+            <span class="modal-label">标记位置（经纬度）</span>
+            <div class="modal-coords">
+              <div class="modal-coords-item">
+                <label class="modal-label modal-label--sub" for="marker-lng">经度</label>
+                <input
+                  id="marker-lng"
+                  v-model="lng"
+                  type="number"
+                  step="0.000001"
+                  class="modal-input"
+                  placeholder="如 6.786770"
+                />
+              </div>
+              <div class="modal-coords-item">
+                <label class="modal-label modal-label--sub" for="marker-lat">纬度</label>
+                <input
+                  id="marker-lat"
+                  v-model="lat"
+                  type="number"
+                  step="0.000001"
+                  class="modal-input"
+                  placeholder="如 44.582410"
+                />
+              </div>
+            </div>
+            <p class="modal-hint">已按全景点击位置估算，可手动修改；或取消后点击右下角地图精确定位</p>
+          </div>
+          <div class="modal-actions">
+            <button class="modal-btn modal-btn-cancel" @click="cancel">取消</button>
+            <button class="modal-btn modal-btn-confirm" :disabled="!name.trim()" @click="confirm">
+              确认添加
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </Transition>
   </Teleport>
 </template>
 
@@ -36,28 +80,77 @@ import { ref, watch, nextTick } from 'vue'
 
 const props = defineProps<{
   visible: boolean
+  coordinates: [number, number]
 }>()
 
 const emit = defineEmits<{
-  confirm: [name: string, description: string]
+  confirm: [name: string, description: string, coordinates: [number, number]]
   cancel: []
 }>()
 
 const name = ref('')
 const description = ref('')
+const lng = ref('')
+const lat = ref('')
 const nameInput = ref<HTMLInputElement>()
+
+function syncCoords() {
+  lng.value = props.coordinates[0].toFixed(6)
+  lat.value = props.coordinates[1].toFixed(6)
+}
 
 watch(() => props.visible, (val) => {
   if (val) {
     name.value = ''
     description.value = ''
+    syncCoords()
     nextTick(() => nameInput.value?.focus())
   }
 })
 
+// 地图选点等外部坐标变化时同步输入框
+watch(() => props.coordinates, () => {
+  if (props.visible) syncCoords()
+})
+
+function cancel() {
+  emit('cancel')
+}
+
 function confirm() {
   if (!name.value.trim()) return
-  emit('confirm', name.value.trim(), description.value.trim())
+  const lngNum = Number.parseFloat(lng.value)
+  const latNum = Number.parseFloat(lat.value)
+  const coords: [number, number] = [
+    Number.isNaN(lngNum) ? props.coordinates[0] : Math.min(180, Math.max(-180, lngNum)),
+    Number.isNaN(latNum) ? props.coordinates[1] : Math.min(90, Math.max(-90, latNum)),
+  ]
+  emit('confirm', name.value.trim(), description.value.trim(), coords)
+}
+
+// Esc 关闭 + 简易焦点圈定（Tab 在弹窗内循环；排除 tabindex=-1 的容器自身）
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') {
+    cancel()
+    return
+  }
+  if (e.key !== 'Tab') return
+  const focusable = Array.from(
+    (e.currentTarget as HTMLElement).querySelectorAll<HTMLElement>(
+      'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])'
+    )
+  )
+  if (focusable.length === 0) return
+  const first = focusable[0]
+  const last = focusable[focusable.length - 1]
+  const active = document.activeElement
+  if (e.shiftKey && active === first) {
+    e.preventDefault()
+    last.focus()
+  } else if (!e.shiftKey && active === last) {
+    e.preventDefault()
+    first.focus()
+  }
 }
 </script>
 
@@ -65,34 +158,52 @@ function confirm() {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(10, 12, 22, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 10000;
 }
+
 .modal-content {
   background: #fff;
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 24px;
-  width: 400px;
+  width: 440px;
   max-width: 90vw;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
+  outline: none;
 }
+
 .modal-title {
   margin: 0 0 16px;
   font-size: 18px;
   color: #222;
 }
+
 .modal-field {
   margin-bottom: 14px;
 }
+
 .modal-label {
   display: block;
   margin-bottom: 6px;
   font-size: 13px;
   color: #555;
 }
+
+.modal-label--sub {
+  font-size: 12px;
+  color: #777;
+  margin-bottom: 4px;
+}
+
+.modal-coords {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
 .modal-input,
 .modal-textarea {
   width: 100%;
@@ -104,38 +215,77 @@ function confirm() {
   outline: none;
   resize: vertical;
 }
+
 .modal-input:focus,
 .modal-textarea:focus {
   border-color: #4a9eff;
   box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
 }
+
+.modal-hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #999;
+  line-height: 1.5;
+}
+
 .modal-actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
   margin-top: 20px;
 }
+
 .modal-btn {
   padding: 8px 20px;
   border: none;
   border-radius: 6px;
   font-size: 14px;
   cursor: pointer;
-  transition: opacity 0.2s;
+  transition: all 0.2s;
 }
-.modal-btn:hover {
-  opacity: 0.85;
-}
+
 .modal-btn-cancel {
   background: #eee;
   color: #555;
 }
+
+.modal-btn-cancel:hover {
+  background: #e2e2e2;
+}
+
 .modal-btn-confirm {
   background: #4a9eff;
   color: #fff;
 }
+
+.modal-btn-confirm:hover:not(:disabled) {
+  background: #2f8bf5;
+}
+
 .modal-btn-confirm:disabled {
   background: #a0c4ff;
   cursor: not-allowed;
+}
+
+/* 过渡动效 */
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.modal-enter-active .modal-content,
+.modal-leave-active .modal-content {
+  transition: transform 0.2s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+
+.modal-enter-from .modal-content,
+.modal-leave-to .modal-content {
+  transform: translateY(16px) scale(0.96);
 }
 </style>
