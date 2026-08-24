@@ -1,7 +1,8 @@
 <template>
   <div class="scene-selector">
-    <label class="scene-label">场景：</label>
+    <label class="scene-label" for="scene-select">场景：</label>
     <select
+      id="scene-select"
       class="scene-select"
       :value="currentSceneId"
       @change="onSelect"

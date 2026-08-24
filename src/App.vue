@@ -69,7 +69,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import SceneSelector from '@/components/SceneSelector.vue'
 import PsvContainer from '@/components/PsvContainer.vue'
 import MarkerList from '@/components/MarkerList.vue'
@@ -114,6 +114,20 @@ const flow = useAddMarkerFlow({
 
 const isEditing = computed(() => !!flow.editingMarker.value)
 
+// 全局键盘快捷键：Escape 退出添加/编辑模式
+function onGlobalKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && (flow.adding.value || flow.showModal.value)) {
+    if (flow.showModal.value) {
+      flow.onModalCancel()
+    } else {
+      flow.exitAdding()
+    }
+  }
+}
+
+onMounted(() => document.addEventListener('keydown', onGlobalKeydown))
+onUnmounted(() => document.removeEventListener('keydown', onGlobalKeydown))
+
 function onSceneSwitch(id: string) {
   flow.exitAdding()
   const target = scenes.value.find(s => s.id === id)
@@ -157,6 +171,7 @@ function onEditMarker(id: string) {
 
 function onDeleteMarker(id: string) {
   const marker = currentMarkers.value.find(m => m.id === id)
+  if (marker && !confirm(`确定删除标记「${marker.name}」？`)) return
   removeMarker(id)
   show(`已删除标记「${marker?.name ?? id}」`, 'info')
 }
@@ -173,7 +188,8 @@ function onExportMarkers() {
   a.href = url
   a.download = `map-360-markers-${new Date().toISOString().slice(0, 10)}.json`
   a.click()
-  URL.revokeObjectURL(url)
+  // 延迟释放 URL，确保浏览器有时间启动下载
+  setTimeout(() => URL.revokeObjectURL(url), 100)
   show('已导出全部标记', 'success')
 }
 

@@ -44,7 +44,7 @@
         :key="marker.id"
         class="marker-item"
       >
-        <div class="marker-item-info" @click="$emit('viewMarker', marker.id)">
+        <div class="marker-item-info" role="button" tabindex="0" @click="$emit('viewMarker', marker.id)" @keydown.enter="$emit('viewMarker', marker.id)">
           <div class="marker-item-name-row">
             <span class="marker-item-name">{{ marker.name }}</span>
             <span

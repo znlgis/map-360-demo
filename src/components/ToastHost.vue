@@ -8,6 +8,7 @@
           :key="toast.id"
           class="toast"
           :class="`toast--${toast.type}`"
+          role="alert"
           @click="dismiss(toast.id)"
         >
           <span class="toast-icon" aria-hidden="true">{{ iconOf(toast.type) }}</span>

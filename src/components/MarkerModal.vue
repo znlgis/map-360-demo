@@ -118,7 +118,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick, onBeforeUnmount, useId } from 'vue'
 import type { MarkerData, MarkerPayload, MarkerType, Scene } from '@/types'
 
 const props = defineProps<{
@@ -137,7 +137,7 @@ const emit = defineEmits<{
   cancel: []
 }>()
 
-const modalTitleId = `marker-modal-${Math.random().toString(36).slice(2, 8)}`
+const modalTitleId = useId()
 const name = ref('')
 const description = ref('')
 const lng = ref('')
@@ -246,7 +246,7 @@ onBeforeUnmount(() => {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(10, 12, 22, 0.55);
+  background: rgba(10, 12, 22, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -256,21 +256,22 @@ onBeforeUnmount(() => {
 }
 
 .modal-content {
-  background: #fff;
+  background: #1e1e2e;
+  border: 1px solid #333;
   border-radius: 14px;
   padding: 24px;
   width: 440px;
   max-width: 92vw;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
   outline: none;
 }
 
 .modal-title {
   margin: 0 0 16px;
   font-size: 18px;
-  color: #222;
+  color: #eee;
 }
 
 .modal-field {
@@ -281,12 +282,12 @@ onBeforeUnmount(() => {
   display: block;
   margin-bottom: 6px;
   font-size: 13px;
-  color: #555;
+  color: #aaa;
 }
 
 .modal-label--sub {
   font-size: 12px;
-  color: #777;
+  color: #888;
   margin-bottom: 4px;
 }
 
@@ -300,8 +301,10 @@ onBeforeUnmount(() => {
 .modal-textarea {
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid #ddd;
+  border: 1px solid #3a3a52;
   border-radius: 6px;
+  background: #2a2a3e;
+  color: #eee;
   font-size: 14px;
   font-family: inherit;
   outline: none;
@@ -314,10 +317,15 @@ onBeforeUnmount(() => {
   box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
 }
 
+.modal-input::placeholder,
+.modal-textarea::placeholder {
+  color: #666;
+}
+
 .modal-hint {
   margin: 8px 0 0;
   font-size: 12px;
-  color: #999;
+  color: #777;
   line-height: 1.5;
 }
 
@@ -333,20 +341,20 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  border: 1.5px solid #e2e2e2;
+  border: 1.5px solid #3a3a52;
   border-radius: 10px;
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .modal-type:hover {
-  border-color: #b8d8ff;
+  border-color: #4a9eff;
 }
 
 .modal-type--active {
   border-color: #4a9eff;
-  background: rgba(74, 158, 255, 0.08);
-  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.12);
+  background: rgba(74, 158, 255, 0.12);
+  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.15);
 }
 
 .modal-type-input {
@@ -371,7 +379,7 @@ onBeforeUnmount(() => {
 .modal-type-name {
   font-size: 13px;
   font-weight: 600;
-  color: #333;
+  color: #eee;
 }
 
 .modal-type-desc {
@@ -396,12 +404,12 @@ onBeforeUnmount(() => {
 }
 
 .modal-btn-cancel {
-  background: #eee;
-  color: #555;
+  background: #3a3a52;
+  color: #ccc;
 }
 
 .modal-btn-cancel:hover {
-  background: #e2e2e2;
+  background: #4a4a62;
 }
 
 .modal-btn-confirm {
@@ -414,7 +422,7 @@ onBeforeUnmount(() => {
 }
 
 .modal-btn-confirm:disabled {
-  background: #a0c4ff;
+  background: #3a5a8a;
   cursor: not-allowed;
 }
 

@@ -113,14 +113,10 @@ export function useAppState() {
     }
   }
 
-  /** 恢复为预设标记，并清空持久化数据 */
+  /** 恢复为预设标记 */
   function resetMarkers(): void {
     markers.value = [...DEFAULT_MARKERS].map(m => ({ ...m, createdAt: Date.now() }))
-    try {
-      localStorage.removeItem(STORAGE_KEY)
-    } catch {
-      // 忽略清理失败
-    }
+    // watch 会自动将新的预设标记持久化到 localStorage
   }
 
   /** 导出全部标记为 JSON 字符串 */
