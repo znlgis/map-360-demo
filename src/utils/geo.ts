@@ -22,6 +22,34 @@ function mPerDegLng(lat: number): number {
   return 111320 * Math.cos((lat * Math.PI) / 180)
 }
 
+/** 两点间地面距离（米，平面近似，短距离足够精确） */
+export function distanceMeters(a: [number, number], b: [number, number]): number {
+  const east = (b[0] - a[0]) * mPerDegLng(a[1])
+  const north = (b[1] - a[1]) * M_PER_DEG_LAT
+  return Math.hypot(east, north)
+}
+
+/** a → b 的地理方位角（度，顺时针自北） */
+export function bearingBetween(a: [number, number], b: [number, number]): number {
+  const east = (b[0] - a[0]) * mPerDegLng(a[1])
+  const north = (b[1] - a[1]) * M_PER_DEG_LAT
+  return (Math.atan2(east, north) * 180) / Math.PI
+}
+
+/** 从起点沿方位角移动指定距离后的目标点 */
+export function destination(
+  from: [number, number],
+  bearingDeg: number,
+  distM: number,
+): [number, number] {
+  const bearingRad = (bearingDeg * Math.PI) / 180
+  const [lng, lat] = from
+  return [
+    round6(lng + (distM * Math.sin(bearingRad)) / mPerDegLng(lat)),
+    round6(lat + (distM * Math.cos(bearingRad)) / M_PER_DEG_LAT),
+  ]
+}
+
 /**
  * 全景点击位置（yaw）对应的地理方位角（度，顺时针自北）。
  * 与 PlanPlugin 的镜头指向公式一致：真实方位角 = 场景 bearing + yaw。

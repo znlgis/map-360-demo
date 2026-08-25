@@ -79,12 +79,9 @@ function createViewer() {
         size: { width: 'min(300px, 72vw)', height: 'min(300px, 34vh)' },
         position: 'bottom left',
         visibleOnLoad: true,
-        // 暴露原始 Leaflet 实例，用于地图点击精确选点
-        configureLeaflet: (map) => {
-          map.on('click', (e) => {
-            emit('map-pick', [e.latlng.lng, e.latlng.lat])
-          })
-        },
+        // 注意：不要用 configureLeaflet 选项——它的语义是"完全接管 Leaflet 配置"，
+        // 传入后默认的 OSM 底图图层不会添加，地图会变灰色空面板。
+        // 点击监听改为创建后通过 getLeaflet() 挂载。
       }),
       MarkersPlugin.withConfig({
         markers: props.markers.map(toPsvMarkerConfig),
@@ -94,6 +91,12 @@ function createViewer() {
 
   markersPlugin = viewer.getPlugin<MarkersPlugin>(MarkersPlugin)
   planPlugin = viewer.getPlugin<PlanPlugin>(PlanPlugin)
+
+  // 地图点击精确选点：通过公开 API getLeaflet() 挂监听，
+  // 不占用 configureLeaflet 选项（会接管默认底图配置）
+  planPlugin?.getLeaflet().on('click', (e) => {
+    emit('map-pick', [e.latlng.lng, e.latlng.lat])
+  })
 
   // 点击360视图获取位置（点击标记时不触发）
   viewer.addEventListener('click', (e) => {

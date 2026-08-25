@@ -60,6 +60,8 @@
       :current-scene-id="currentSceneId"
       :scenes="scenes"
       :editing-marker="flow.editingMarker.value"
+      :scene-coordinates="currentScene.coordinates"
+      @coords-change="flow.onModalCoordsChange"
       @confirm="flow.onModalConfirm"
       @cancel="flow.onModalCancel"
     />

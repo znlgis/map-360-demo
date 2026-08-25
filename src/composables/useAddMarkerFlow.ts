@@ -117,6 +117,15 @@ export function useAddMarkerFlow(options: UseAddMarkerFlowOptions) {
     showModal.value = false
   }
 
+  /**
+   * 弹窗内坐标被修改（如距离滑块拖动）时实时同步预览。
+   * 滑块沿固定方位角移动，方向不变，故 yaw 无需重算。
+   */
+  function onModalCoordsChange(coords: [number, number]) {
+    if (!pendingPosition.value) return
+    pendingCoords.value = coords
+  }
+
   function onModalConfirm(payload: MarkerPayload) {
     if (!pendingPosition.value) return
     // 手动修改过坐标时，重新反推 yaw，保持 360 视图方向与地图一致
@@ -159,6 +168,7 @@ export function useAddMarkerFlow(options: UseAddMarkerFlowOptions) {
     onClickEmpty,
     onMapPick,
     onModalCancel,
+    onModalCoordsChange,
     onModalConfirm,
   }
 }

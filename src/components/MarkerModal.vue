@@ -98,7 +98,23 @@
                 />
               </div>
             </div>
-            <p class="modal-hint">已按选点位置估算，可手动修改；或取消后点击全景图/地图重新选点</p>
+            <div class="modal-dist">
+              <div class="modal-dist-head">
+                <label class="modal-label modal-label--sub" for="marker-dist">距拍摄点距离</label>
+                <span class="modal-dist-value">约 {{ Math.round(distM) }} 米</span>
+              </div>
+              <input
+                id="marker-dist"
+                :value="sliderDist"
+                class="modal-dist-slider"
+                type="range"
+                min="50"
+                max="3000"
+                step="10"
+                @input="onDistInput"
+              />
+              <p class="modal-hint">拖动滑块沿当前方向远近移动标记，全景与地图预览实时同步；也可直接修改上方经纬度</p>
+            </div>
           </div>
 
           <div class="modal-actions">
@@ -120,6 +136,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onBeforeUnmount, useId } from 'vue'
 import type { MarkerData, MarkerPayload, MarkerType, Scene } from '@/types'
+import { distanceMeters, bearingBetween, destination } from '@/utils/geo'
 
 const props = defineProps<{
   visible: boolean
@@ -130,11 +147,15 @@ const props = defineProps<{
   scenes: Scene[]
   /** 编辑中的标记，为空表示新增 */
   editingMarker?: MarkerData | null
+  /** 当前场景拍摄点坐标（距离滑块的基准） */
+  sceneCoordinates: [number, number]
 }>()
 
 const emit = defineEmits<{
   confirm: [payload: MarkerPayload]
   cancel: []
+  /** 弹窗内坐标被修改（距离滑块），用于实时同步预览 */
+  'coords-change': [coords: [number, number]]
 }>()
 
 const modalTitleId = useId()
@@ -188,6 +209,34 @@ watch(() => props.visible, (val) => {
 watch(() => props.coordinates, () => {
   if (props.visible) syncCoords()
 })
+
+/** 表单当前坐标（解析失败时回退到选点坐标） */
+const formCoords = computed<[number, number]>(() => {
+  const lo = Number.parseFloat(lng.value)
+  const la = Number.parseFloat(lat.value)
+  if (Number.isNaN(lo) || Number.isNaN(la)) return props.coordinates
+  return [lo, la]
+})
+
+/** 标记距拍摄点的地面距离（米） */
+const distM = computed<number>(() =>
+  distanceMeters(props.sceneCoordinates, formCoords.value)
+)
+
+/** 滑块显示值：钳制在可选范围内（极近/极远时滑块贴边但数值照常显示） */
+const sliderDist = computed<number>(() =>
+  Math.min(3000, Math.max(50, Math.round(distM.value)))
+)
+
+/** 拖动距离滑块：沿当前方位角移动，保持方向不变 */
+function onDistInput(e: Event) {
+  const dist = Number((e.target as HTMLInputElement).value)
+  const bearing = bearingBetween(props.sceneCoordinates, formCoords.value)
+  const coords = destination(props.sceneCoordinates, bearing, dist)
+  lng.value = coords[0].toFixed(6)
+  lat.value = coords[1].toFixed(6)
+  emit('coords-change', coords)
+}
 
 function cancel() {
   emit('cancel')
@@ -329,6 +378,34 @@ onBeforeUnmount(() => {
   font-size: 12px;
   color: #777;
   line-height: 1.5;
+}
+
+/* 距离滑块 */
+.modal-dist {
+  margin-top: 10px;
+}
+
+.modal-dist-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal-dist-head .modal-label--sub {
+  margin-bottom: 0;
+}
+
+.modal-dist-value {
+  font-size: 12px;
+  color: #4a9eff;
+  font-variant-numeric: tabular-nums;
+}
+
+.modal-dist-slider {
+  width: 100%;
+  margin: 8px 0 0;
+  accent-color: #4a9eff;
+  cursor: pointer;
 }
 
 /* 类型选择卡片 */
