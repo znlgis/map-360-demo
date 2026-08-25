@@ -115,13 +115,16 @@ const flow = useAddMarkerFlow({
 const isEditing = computed(() => !!flow.editingMarker.value)
 
 // 全局键盘快捷键：Escape 退出添加/编辑模式
+// （弹窗内的 Esc 由 MarkerModal 自行处理并拦截冒泡，此处不重复响应）
 function onGlobalKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape' && (flow.adding.value || flow.showModal.value)) {
-    if (flow.showModal.value) {
-      flow.onModalCancel()
-    } else {
-      flow.exitAdding()
-    }
+  if (e.key !== 'Escape') return
+  if (flow.showModal.value) {
+    // 焦点不在弹窗内时（如点击工具栏后），兜底关闭弹窗
+    flow.onModalCancel()
+    return
+  }
+  if (flow.adding.value) {
+    flow.exitAdding()
   }
 }
 

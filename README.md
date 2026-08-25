@@ -23,7 +23,7 @@
 | --- | --- | --- |
 | Vue | 3.5 | UI 框架 |
 | Vite | 8.x | 构建工具 |
-| TypeScript | 5.8 | 类型系统 |
+| TypeScript | 6.0 | 类型系统 |
 | @photo-sphere-viewer/core | 5.15 | 全景查看器 |
 | @photo-sphere-viewer/markers-plugin | 5.15 | 全景标记 |
 | @photo-sphere-viewer/plan-plugin | 5.15 | 嵌入地图 |
@@ -36,6 +36,7 @@ npm install     # 安装依赖
 npm run dev     # 启动开发服务器（默认 http://localhost:5173）
 npm run build   # 类型检查 + 生产构建（输出到 dist/）
 npm run preview # 预览生产构建
+npm run typecheck # 仅运行类型检查（含 vite.config.ts）
 ```
 
 ## 📁 项目结构

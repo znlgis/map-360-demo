@@ -119,13 +119,24 @@ export function useAddMarkerFlow(options: UseAddMarkerFlowOptions) {
 
   function onModalConfirm(payload: MarkerPayload) {
     if (!pendingPosition.value) return
+    // 手动修改过坐标时，重新反推 yaw，保持 360 视图方向与地图一致
+    const coordsEdited =
+      !pendingCoords.value ||
+      payload.coordinates[0] !== pendingCoords.value[0] ||
+      payload.coordinates[1] !== pendingCoords.value[1]
+    const position = coordsEdited
+      ? {
+          yaw: yawFromGps(currentScene.value, payload.coordinates),
+          pitch: pendingPosition.value.pitch,
+        }
+      : pendingPosition.value
     const base = {
       name: payload.name,
       description: payload.description,
       coordinates: payload.coordinates,
       type: payload.type,
       targetSceneId: payload.targetSceneId,
-      position: pendingPosition.value,
+      position,
     }
     if (editingId.value) {
       onUpdate(editingId.value, base)

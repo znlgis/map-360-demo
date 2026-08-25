@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
+    "typecheck": "vue-tsc -b",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -17,6 +18,7 @@
   },
   "devDependencies": {
     "@types/leaflet": "1.9.22",
+    "@types/node": "^26.3.0",
     "@vitejs/plugin-vue": "6.0.8",
     "typescript": "6.0.3",
     "vite": "8.2.2",

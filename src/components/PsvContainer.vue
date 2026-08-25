@@ -3,7 +3,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { Viewer } from '@photo-sphere-viewer/core'
 import { MarkersPlugin } from '@photo-sphere-viewer/markers-plugin'
 import type { MarkerConfig } from '@photo-sphere-viewer/markers-plugin'
@@ -167,9 +167,19 @@ function refreshMarkers() {
   syncPreview()
 }
 
-// 场景切换时重建 viewer
-watch(() => props.scene.id, () => {
-  nextTick(() => createViewer())
+// 场景切换：复用 viewer 实例，仅更新全景图/地图/标记。
+// 相比销毁重建，保留 WebGL 上下文与 Leaflet 瓦片缓存，切换更快且带过渡动画。
+watch(() => props.scene.id, (id) => {
+  if (!viewer || viewerSceneId === id) return
+  viewerSceneId = id
+  refreshMarkers()
+  planPlugin?.setOptions({ bearing: props.scene.bearing })
+  planPlugin?.setCoordinates(props.scene.coordinates)
+  planPlugin?.setZoom(props.scene.defaultZoom)
+  viewer.setPanorama(props.scene.panorama, {
+    caption: props.scene.name,
+    showLoader: true,
+  })
 })
 
 // 标记变化时增量更新

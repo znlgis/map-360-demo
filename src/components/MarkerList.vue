@@ -83,6 +83,7 @@
 import { ref, computed } from 'vue'
 import type { MarkerData } from '@/types'
 import { SCENES } from '@/data/scenes'
+import { useToast } from '@/composables/useToast'
 
 const props = defineProps<{
   markers: MarkerData[]
@@ -102,6 +103,7 @@ const emit = defineEmits<{
 const collapsed = ref(false)
 const keyword = ref('')
 const fileInput = ref<HTMLInputElement>()
+const { show } = useToast()
 
 /** 新添加的标记排在前面 */
 const sortedMarkers = computed<MarkerData[]>(() =>
@@ -144,6 +146,9 @@ function onImportFile(e: Event) {
   const reader = new FileReader()
   reader.onload = () => {
     emit('import', String(reader.result ?? ''))
+  }
+  reader.onerror = () => {
+    show('文件读取失败，请重试', 'error')
   }
   reader.readAsText(file)
 }

@@ -214,6 +214,8 @@ function confirm() {
 // Esc 关闭 + 简易焦点圈定（Tab 在弹窗内循环；排除 tabindex=-1 的容器自身）
 function onKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
+    // 阻止冒泡，避免 App 的全局 Esc 处理器在弹窗关闭后误退出添加模式
+    e.stopPropagation()
     cancel()
     return
   }

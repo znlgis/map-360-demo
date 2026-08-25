@@ -56,28 +56,30 @@ function nextIdFrom(markers: MarkerData[]): number {
 const initialMarkers = loadMarkers()
 let idCounter = nextIdFrom(initialMarkers)
 
+// 模块级单例状态：多处调用 useAppState() 共享同一份响应式数据
+const scenes = ref<Scene[]>([...SCENES])
+const currentSceneId = ref<string>(SCENES[0].id)
+const markers = ref<MarkerData[]>(initialMarkers)
+
+const currentScene = computed<Scene>(() =>
+  scenes.value.find(s => s.id === currentSceneId.value) ?? scenes.value[0]
+)
+
+const currentMarkers = computed<MarkerData[]>(() =>
+  markers.value.filter(m => m.sceneId === currentSceneId.value)
+)
+
+// 标记变化时持久化（首次不写盘，默认数据仅在首次变更后落盘）
+// 模块级 watch 与应用同生命周期，不随组件卸载而停止
+watch(markers, (val) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(val))
+  } catch {
+    // 超出配额等异常时静默忽略，不影响使用
+  }
+}, { deep: true })
+
 export function useAppState() {
-  const scenes = ref<Scene[]>([...SCENES])
-  const currentSceneId = ref<string>(SCENES[0].id)
-  const markers = ref<MarkerData[]>(initialMarkers)
-
-  // 标记变化时持久化（首次不写盘，默认数据仅在首次变更后落盘）
-  watch(markers, (val) => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(val))
-    } catch {
-      // 超出配额等异常时静默忽略，不影响使用
-    }
-  }, { deep: true })
-
-  const currentScene = computed<Scene>(() =>
-    scenes.value.find(s => s.id === currentSceneId.value) ?? scenes.value[0]
-  )
-
-  const currentMarkers = computed<MarkerData[]>(() =>
-    markers.value.filter(m => m.sceneId === currentSceneId.value)
-  )
-
   function generateId(): string {
     return 'm' + (idCounter++)
   }
