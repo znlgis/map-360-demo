@@ -176,12 +176,14 @@ function onEditMarker(id: string) {
 
 function onDeleteMarker(id: string) {
   const marker = currentMarkers.value.find(m => m.id === id)
-  if (marker && !confirm(`确定删除标记「${marker.name}」？`)) return
+  if (!marker) return
+  if (!confirm(`确定删除标记「${marker.name}」？`)) return
   removeMarker(id)
-  show(`已删除标记「${marker?.name ?? id}」`, 'info')
+  show(`已删除标记「${marker.name}」`, 'info')
 }
 
 function onRestoreMarkers() {
+  if (!confirm('确定恢复为预设标记？当前所有标记将被替换。')) return
   resetMarkers()
   show('已恢复为预设标记', 'success')
 }

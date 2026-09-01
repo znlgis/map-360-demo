@@ -117,7 +117,13 @@ export function useAppState() {
 
   /** 恢复为预设标记 */
   function resetMarkers(): void {
-    markers.value = [...DEFAULT_MARKERS].map(m => ({ ...m, createdAt: Date.now() }))
+    // 深拷贝嵌套引用，防止后续编辑污染 DEFAULT_MARKERS 常量
+    markers.value = DEFAULT_MARKERS.map(m => ({
+      ...m,
+      position: { ...m.position },
+      coordinates: [...m.coordinates] as [number, number],
+      createdAt: Date.now(),
+    }))
     // watch 会自动将新的预设标记持久化到 localStorage
   }
 
@@ -140,10 +146,14 @@ export function useAppState() {
       if (valid.length === 0) {
         return { ok: false, message: '文件中没有有效的标记数据' }
       }
-      // 重新分配 id，避免与现有标记冲突；场景不存在的标记丢弃
+      // 重新分配 id，避免与现有标记冲突；场景不存在的标记丢弃，
+      // link 标记额外要求目标场景存在，避免跳转到无效场景
       const knownIds = new Set(scenes.value.map(s => s.id))
       const imported: MarkerData[] = valid
-        .filter(m => knownIds.has(m.sceneId))
+        .filter(m =>
+          knownIds.has(m.sceneId) &&
+          (m.type !== 'link' || (m.targetSceneId !== undefined && knownIds.has(m.targetSceneId)))
+        )
         .map(m => ({
           ...m,
           id: generateId(),

@@ -2,7 +2,7 @@ import { ref, computed } from 'vue'
 import type { ComputedRef } from 'vue'
 import type { MarkerData, MarkerPayload, Scene } from '@/types'
 import { PREVIEW_ID } from '@/data/scenes'
-import { estimateGps, yawFromGps } from '@/utils/geo'
+import { estimateGps, yawFromGps, distanceMeters } from '@/utils/geo'
 
 interface UseAddMarkerFlowOptions {
   currentScene: ComputedRef<Scene>
@@ -119,11 +119,16 @@ export function useAddMarkerFlow(options: UseAddMarkerFlowOptions) {
 
   /**
    * 弹窗内坐标被修改（如距离滑块拖动）时实时同步预览。
-   * 滑块沿固定方位角移动，方向不变，故 yaw 无需重算。
+   * 滑块沿固定方位角移动，方向不变，故 yaw 无需重算；
+   * 但距离变化需按 dist = 450 + pitch*800 逆式回推 pitch，
+   * 否则预览 pin 纵向位置不随滑块移动，确认后与地图距离脱节。
    */
   function onModalCoordsChange(coords: [number, number]) {
     if (!pendingPosition.value) return
     pendingCoords.value = coords
+    // 钳制到 estimateGps 的模型范围 [120, 1100]，保证逆式与正向模型一致
+    const distM = Math.min(1100, Math.max(120, distanceMeters(currentScene.value.coordinates, coords)))
+    pendingPosition.value = { ...pendingPosition.value, pitch: (distM - 450) / 800 }
   }
 
   function onModalConfirm(payload: MarkerPayload) {

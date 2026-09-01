@@ -175,7 +175,8 @@ function refreshMarkers() {
 watch(() => props.scene.id, (id) => {
   if (!viewer || viewerSceneId === id) return
   viewerSceneId = id
-  refreshMarkers()
+  // 标记刷新交由下方 markers watcher 处理：切场景时 currentMarkers 返回新引用，
+  // 该 watcher 必然触发，此处再调 refreshMarkers 会造成 setMarkers 重复执行两次
   planPlugin?.setOptions({ bearing: props.scene.bearing })
   planPlugin?.setCoordinates(props.scene.coordinates)
   planPlugin?.setZoom(props.scene.defaultZoom)
@@ -185,17 +186,17 @@ watch(() => props.scene.id, (id) => {
   })
 })
 
-// 标记变化时增量更新
+// 标记变化时增量更新（currentMarkers 每次返回新引用，引用变化已足够触发，无需 deep）
 watch(() => props.markers, () => {
   if (!viewer) return
   refreshMarkers()
-}, { deep: true, flush: 'post' })
+}, { flush: 'post' })
 
-// 预览标记变化时同步
+// 预览标记变化时同步（previewMarker 为 computed，每次返回新引用，无需 deep）
 watch(() => props.previewMarker, () => {
   if (!viewer) return
   syncPreview()
-}, { deep: true })
+})
 
 onMounted(() => {
   createViewer()
