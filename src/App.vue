@@ -34,11 +34,22 @@
       <PsvContainer
         ref="psvRef"
         :scene="currentScene"
-        :markers="currentMarkers"
+        :scenes="scenes"
+        :markers="markers"
         :preview-marker="flow.previewMarker.value"
+        :features="features"
         @click-empty="flow.onClickEmpty"
         @map-pick="flow.onMapPick"
         @marker-click="onMarkerClick"
+        @scene-change="onSceneChange"
+        @gyroscope-error="onGyroscopeError"
+      />
+      <FeaturePanel
+        v-model:autorotate="features.autorotate"
+        v-model:compass="features.compass"
+        v-model:gyroscope="features.gyroscope"
+        v-model:settings="features.settings"
+        v-model:gallery="features.gallery"
       />
     </main>
 
@@ -71,22 +82,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import SceneSelector from '@/components/SceneSelector.vue'
 import PsvContainer from '@/components/PsvContainer.vue'
+import FeaturePanel from '@/components/FeaturePanel.vue'
 import MarkerList from '@/components/MarkerList.vue'
 import MarkerModal from '@/components/MarkerModal.vue'
 import ToastHost from '@/components/ToastHost.vue'
 import { useAppState } from '@/composables/useAppState'
 import { useToast } from '@/composables/useToast'
 import { useAddMarkerFlow } from '@/composables/useAddMarkerFlow'
-import type { MarkerData } from '@/types'
+import type { FeatureFlags } from '@/types'
 
 const {
   scenes,
   currentSceneId,
   currentScene,
   currentMarkers,
+  markers,
   switchScene,
   addMarker,
   updateMarker,
@@ -99,6 +112,15 @@ const {
 const { show } = useToast()
 
 const psvRef = ref<InstanceType<typeof PsvContainer>>()
+
+// 可切换的 PSV 功能开关
+const features = reactive<FeatureFlags>({
+  autorotate: false,
+  compass: false,
+  gyroscope: false,
+  settings: false,
+  gallery: false,
+})
 
 const flow = useAddMarkerFlow({
   currentScene,
@@ -121,7 +143,6 @@ const isEditing = computed(() => !!flow.editingMarker.value)
 function onGlobalKeydown(e: KeyboardEvent) {
   if (e.key !== 'Escape') return
   if (flow.showModal.value) {
-    // 焦点不在弹窗内时（如点击工具栏后），兜底关闭弹窗
     flow.onModalCancel()
     return
   }
@@ -142,12 +163,22 @@ function onSceneSwitch(id: string) {
   }
 }
 
+/** 虚拟导览箭头 / 画廊触发的场景切换 */
+function onSceneChange(id: string) {
+  if (id === currentSceneId.value) return
+  flow.exitAdding()
+  const target = scenes.value.find(s => s.id === id)
+  switchScene(id)
+  if (target) {
+    show(`已切换至「${target.name}」`, 'info')
+  }
+}
+
 /** 标记点击：link 标记切换场景，info 标记旋转视角 */
 function onMarkerClick(id: string) {
   const marker = currentMarkers.value.find(m => m.id === id)
   if (!marker) return
   if (marker.type === 'link' && marker.targetSceneId) {
-    // 已在该场景时无需切换
     if (marker.targetSceneId === currentScene.value.id) {
       show('已在该场景中', 'info')
       return
@@ -195,7 +226,6 @@ function onExportMarkers() {
   a.href = url
   a.download = `map-360-markers-${new Date().toISOString().slice(0, 10)}.json`
   a.click()
-  // 延迟释放 URL，确保浏览器有时间启动下载
   setTimeout(() => URL.revokeObjectURL(url), 100)
   show('已导出全部标记', 'success')
 }
@@ -203,6 +233,11 @@ function onExportMarkers() {
 function onImportMarkers(json: string) {
   const result = importMarkers(json)
   show(result.message, result.ok ? 'success' : 'error')
+}
+
+function onGyroscopeError() {
+  features.gyroscope = false
+  show('当前设备不支持陀螺仪（需手机浏览器授权）', 'error')
 }
 </script>
 

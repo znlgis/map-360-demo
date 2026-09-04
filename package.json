@@ -10,9 +10,16 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@photo-sphere-viewer/autorotate-plugin": "^5.15.1",
+    "@photo-sphere-viewer/compass-plugin": "^5.15.1",
     "@photo-sphere-viewer/core": "5.15.1",
+    "@photo-sphere-viewer/cubemap-adapter": "^5.15.1",
+    "@photo-sphere-viewer/gallery-plugin": "^5.15.1",
+    "@photo-sphere-viewer/gyroscope-plugin": "^5.15.1",
     "@photo-sphere-viewer/markers-plugin": "5.15.1",
     "@photo-sphere-viewer/plan-plugin": "5.15.1",
+    "@photo-sphere-viewer/settings-plugin": "^5.15.1",
+    "@photo-sphere-viewer/virtual-tour-plugin": "^5.15.1",
     "leaflet": "1.9.4",
     "vue": "3.5.42"
   },
